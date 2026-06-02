@@ -13,12 +13,8 @@ MODEL = "gpt-4o-mini"
 
 openai_client = OpenAI()
 
-
+# Group lyric chunks back into full songs so profile is based on overall narrative
 def load_songs():
-    """
-    Group lyric chunks back into full songs so the profile is based on the
-    song's overall narrative, not just one verse/chorus.
-    """
     songs = {}
 
     for file in sorted(CHUNKS_DIR.glob("*_chunks.csv")):
@@ -42,6 +38,7 @@ def load_songs():
     return songs
 
 
+# Return JSON profile
 def generate_profile(song, album, lyrics):
     lyrics_text = "\n\n".join(lyrics)
 
@@ -119,8 +116,8 @@ def main():
     print(f"Found {len(songs)} songs.")
 
     for key, data in songs.items():
-        # Use timeline_state as the schema-version marker.
-        # If this exists, the profile is already using the newer POV/timeline schema.
+        # Use timeline_state as the schema-version marker
+        # If this exists, the profile is already using the newer POV/timeline schema
         if key in profiles and "timeline_state" in profiles[key]:
             print(f"Skipping existing profile: {data['song']}")
             continue
@@ -136,7 +133,7 @@ def main():
 
             profiles[key] = profile
 
-            # Save after every song so progress survives crashes/API errors.
+            # Save after every song so progress survives crashes/API errors
             with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
                 json.dump(profiles, f, indent=2, ensure_ascii=False)
 

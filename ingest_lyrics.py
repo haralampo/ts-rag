@@ -13,11 +13,8 @@ CHUNKS_DIR = Path("data/chunks")
 PROFILE_FILE = Path("data/song_profiles.json")
 
 
+# Key is album|||song
 def load_song_profiles():
-    """
-    Load song-level emotional/narrative profiles.
-    These profiles help the retriever understand POV and timeline.
-    """
     if not PROFILE_FILE.exists():
         print("No data/song_profiles.json found. Continuing without profiles.")
         return {}
@@ -26,11 +23,8 @@ def load_song_profiles():
         return json.load(f)
 
 
+# Helper: convert profile list into comma-separated strings
 def list_to_text(value):
-    """
-    Convert profile list fields into comma-separated strings.
-    Handles missing or non-list values safely.
-    """
     if isinstance(value, list):
         return ", ".join(str(item) for item in value)
     if value is None:
@@ -38,13 +32,8 @@ def list_to_text(value):
     return str(value)
 
 
+# Convert profile metadata into searchable text
 def get_profile_text(profile):
-    """
-    Convert song profile metadata into searchable text.
-
-    This text gets embedded along with each lyric chunk, so the vector search
-    can consider narrative role, timeline, and emotional context.
-    """
     if not profile:
         return ""
 
@@ -70,13 +59,8 @@ Situations: {situations}
 Summary: {profile.get("summary", "")}
 """.strip()
 
-
+# Create stable ID from row content
 def make_chunk_id(row):
-    """
-    Create a stable ID from row content.
-
-    Stable IDs prevent accidental duplicate records when ingestion is rerun.
-    """
     raw = f"{row['album']}|{row['song']}|{row['section']}|{row['text']}"
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
@@ -103,7 +87,7 @@ def main():
         embedding_function=embedding_func
     )
 
-    # 5. Load song-level profiles.
+    # 5. Load song-level profiles, JSON keyed by "album|||song"
     song_profiles = load_song_profiles()
 
     # 6. Load all chunk CSVs.
@@ -118,17 +102,18 @@ def main():
         df = df.dropna(subset=["text"])
         df = df.drop_duplicates(subset=["album", "song", "section", "text"])
 
+        # Create batches
         documents = []
         metadatas = []
         ids = []
 
         for _, row in df.iterrows():
             profile_key = f"{row['album']}|||{row['song']}"
-            profile = song_profiles.get(profile_key, {})
-            profile_text = get_profile_text(profile)
+            profile = song_profiles.get(profile_key, {}) # Dictionary, good for .get()
+            profile_text = get_profile_text(profile)     # Text block, good for embedding
 
-            # This is the text that gets embedded.
-            # It includes song-level POV/timeline context plus the specific lyric chunk.
+            # This is the text that gets embedded
+            # It includes song-level POV/timeline context plus the specific lyric chunk
             document = f"""
 Song: {row['song']}
 Album: {row['album']}

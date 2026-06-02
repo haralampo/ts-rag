@@ -369,7 +369,7 @@ Return JSON only:
 # Retrieval
 # -----------------------------
 
-def query_one(collection, query, fetch_k=60):
+def query_one(collection, query, fetch_k=35):
     """
     Run one Chroma query and normalize the response.
     """
@@ -414,7 +414,7 @@ def retrieve_candidates(collection, search_plan, max_candidates=40, max_chunks_p
     print("\nSearch queries:")
     for query in search_plan["queries"]:
         print(f"- {query}")
-        raw_matches.extend(query_one(collection, query, fetch_k=60))
+        raw_matches.extend(query_one(collection, query, fetch_k=35))
 
     raw_matches.sort(key=lambda m: m["distance"])
 
@@ -725,7 +725,7 @@ def select_final_matches(reranked, final_k=5, min_score=7):
         return final
 
     # Fallback: keep the best diverse candidates with scores >= 6.
-    # These should be displayed as weaker matches, not as perfect recommendations.
+    # These should be displayed as weaker matches, not as perfect recommendations
     fallback = []
     seen_songs = set()
 
@@ -812,8 +812,8 @@ def run_lyric_search(user_query, num_results=5, min_score=7):
     candidates = retrieve_candidates(
         collection=collection,
         search_plan=search_plan,
-        max_candidates=40,
-        max_chunks_per_song=3
+        max_candidates=25,
+        max_chunks_per_song=2
     )
 
     if not candidates:
