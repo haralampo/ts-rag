@@ -18,7 +18,6 @@ COLLECTION_NAME = "taylor_lyrics"
 MODEL_NAME = "all-MiniLM-L6-v2"
 OPENAI_MODEL = "gpt-4o-mini"
 
-# CHANGE:
 # Keep debug logs off in the public demo.
 DEBUG = False
 
@@ -34,7 +33,7 @@ def load_collection():
     Load the Chroma collection with the same embedding model used at ingestion.
 
     CHANGE:
-    This is now separate from run_lyric_search so Streamlit can cache it.
+    This is separate from run_lyric_search so Streamlit can cache it.
     Re-loading the embedding model on every search is expensive.
     """
     chroma_client = chromadb.PersistentClient(path=DB_PATH)
@@ -99,8 +98,7 @@ def clean_query(q):
         flags=re.IGNORECASE
     )
 
-    q = q.strip(" .,:;-")
-    return q
+    return q.strip(" .,:;-")
 
 
 def debug_print(*args, **kwargs):
@@ -120,9 +118,8 @@ def build_search_plan(user_query):
     Create a concise search plan.
 
     CHANGE:
-    The search plan stays because it is core to the project.
-    But it now asks for 3 generated queries instead of 4, and the final search
-    uses only 3 total queries: the raw user query plus up to 2 generated ones.
+    The search plan still stays because it is core to the project.
+    This version strengthens speaker role / POV alignment in a general way.
     """
     prompt = f"""
 User situation:
@@ -135,6 +132,7 @@ Focus on:
 - the user's emotional stance
 - the user's POV
 - the user's timeline/phase
+- the user's speaker role in the situation
 - what the matching narrator should feel, want, or need
 - what kinds of song sections would feel validating
 - what kinds of song sections would be misleading
@@ -145,6 +143,21 @@ Important:
 - Do not collapse all anger into revenge.
 - Do not collapse all moving on into healing if the user sounds detached, done, or annoyed.
 - Preserve the user's POV. Do not switch into the perspective of the person causing the problem.
+- Speaker role is critical. Identify who the user is in the situation:
+  - the person left behind
+  - the person leaving
+  - the person betrayed
+  - the person who betrayed someone
+  - the person apologizing
+  - the person refusing to apologize
+  - the person setting a boundary
+  - the person being controlled
+  - the person taking control
+  - the person grieving
+  - the person causing the loss
+  - the person in the crisis
+  - the person reflecting after the crisis
+- The matching narrator should preserve that role. Do not reverse the role.
 
 Query rules:
 - Write retrieval queries as diary-like situation descriptions.
@@ -152,6 +165,7 @@ Query rules:
 - Do not include "Taylor Swift", "song", "songs", "lyric", or "lyrics".
 - Do not ask a question unless the user's situation is naturally a question.
 - Do not turn the query into a web search phrase.
+- Good: "I was left behind and I feel rejected"
 - Good: "I am done explaining myself and want this person to accept it"
 - Bad: "Taylor Swift lyrics about setting boundaries"
 
@@ -162,14 +176,14 @@ Return JSON only:
     "emotional_state": "what the matching narrator should feel",
     "agency_level": "passive | conflicted | setting_boundaries | taking_action | detached | reflective",
     "timeline_phase": "before_event | during_event | immediate_aftermath | unresolved | healing | moved_on | reflective_closure | uncertain",
-    "speaker_role": "the role/perspective the narrator should have"
+    "speaker_role": "the user's exact role/perspective in the situation"
   }},
   "good_match_signals": ["signal1", "signal2", "signal3"],
   "avoid_match_signals": ["signal1", "signal2", "signal3"],
   "queries": [
     "first-person natural situation query",
     "first-person emotional state query",
-    "first-person timeline or agency query"
+    "first-person timeline, agency, or speaker-role query"
   ]
 }}
 """
@@ -367,8 +381,7 @@ def rerank_matches(user_query, search_plan, matches, final_k=5, min_score=7):
     speaker role, and section metadata.
 
     CHANGE:
-    The public version does not include raw lyric text, so the prompt now judges
-    from song-section/profile metadata instead of pretending lyric text exists.
+    Strengthened speaker role / POV alignment without adding case-specific rules.
     """
     candidates = build_rerank_candidates(matches)
 
@@ -381,7 +394,7 @@ Search plan:
 
 You are ranking song-section candidates for a public Taylor Swift match demo.
 
-Pick sections that match the user's actual situation, POV, emotional stance, narrator state, and timeline.
+Pick sections that match the user's actual situation, POV, emotional stance, narrator state, speaker role, agency, and timeline.
 
 The public version does not include raw lyric text. Judge only from the provided song-section metadata:
 - themes
@@ -402,6 +415,8 @@ Evaluation rules:
 - Do not treat neighboring situations as identical.
 - Examples of different situations:
   - being over someone vs still missing them
+  - being dumped vs choosing to leave
+  - being betrayed vs betraying someone
   - setting a boundary vs wanting reconciliation
   - public shame vs private heartbreak
   - grief/loss vs romantic rejection
@@ -409,30 +424,43 @@ Evaluation rules:
   - anxiety/self-doubt vs romantic rejection
   - active crisis vs reflective closure
 
-2. Narrator state alignment
+2. Speaker role / POV alignment
+- Speaker role is critical.
+- Identify who the user is in the situation.
+- Identify who the candidate narrator appears to be.
+- The candidate should preserve the user's role/perspective.
+- Do not reverse the roles.
+- If the user is the person left behind, the candidate should not be from the perspective of the person leaving.
+- If the user is the person wronged, the candidate should not be from the perspective of the person who caused the harm.
+- If the user is apologizing, the candidate should not be from the perspective of someone demanding an apology.
+- If the user is setting a boundary, the candidate should not be from the perspective of someone begging to stay.
+- Role-reversal matches should usually score 5 or below even if the broad topic is similar.
+
+3. Narrator state alignment
 - Compare the user's target narrator state against the candidate's narrator state.
 - The candidate should match emotional state, agency level, timeline phase, and speaker role.
 - Penalize wrong-state matches even when the general topic is similar.
 - Wrong-state matches should usually score 5 or below.
 
-3. Timeline alignment
+4. Timeline alignment
 - Before, during, immediate aftermath, unresolved pain, healing, moved-on detachment, and reflective closure are different phases.
 - A candidate can share the same topic but still be wrong if it speaks from the wrong phase.
 
-4. Score calibration
+5. Score calibration
 - 10 is rare.
 - Prefer 2-3 strong matches over filling the list with weak ones.
+- Do not score a candidate 7+ if the speaker role is reversed.
 - Do not score a candidate 7+ if the narrator state conflicts with the user state.
 - Do not score a candidate 7+ just because it has related keywords.
 - Do not use outside knowledge of the full song.
 
 Scoring:
-- 10: Exact concrete situation, same narrator state, same timeline phase.
+- 10: Exact concrete situation, same speaker role, same narrator state, same timeline phase.
 - 9: Very strong match with tiny differences.
-- 7-8: Good match; narrator state and timeline are right.
+- 7-8: Good match; speaker role, narrator state, and timeline are right.
 - 6: Usable near-match; tone or theme fits, but situation is not exact.
-- 5: General mood/theme match, but narrator state, role, or timeline is noticeably off.
-- 1-4: Wrong narrator state, wrong speaker role, wrong timeline, or mostly keyword overlap.
+- 5: General mood/theme match, but speaker role, narrator state, or timeline is noticeably off.
+- 1-4: Reversed speaker role, wrong narrator state, wrong timeline, or mostly keyword overlap.
 
 Return JSON only.
 Return one ranking entry for every candidate.
@@ -447,7 +475,7 @@ Format:
       "section_is_about": "one sentence describing what this section/song profile seems to be about",
       "narrator_state": "what the narrator seems to feel/want/need",
       "state_alignment": "same_state | close_state | partial_state | wrong_state",
-      "analysis": "briefly explain situation fit, narrator state fit, and timeline fit",
+      "analysis": "briefly explain situation fit, speaker role fit, narrator state fit, and timeline fit",
       "reason": "short user-facing explanation of why this section matches"
     }}
   ]
