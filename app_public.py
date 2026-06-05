@@ -1,12 +1,24 @@
 import streamlit as st
 
-from retrieve_and_rerank_public import run_lyric_search
+# CHANGE:
+# Import load_collection so Streamlit can cache the Chroma collection/model.
+from retrieve_and_rerank_public import run_lyric_search, load_collection
+
 
 st.set_page_config(
     page_title="Taylor Swift Lyric Match",
     page_icon="🎧",
     layout="centered"
 )
+
+
+# CHANGE:
+# Cache the Chroma collection + embedding model.
+# This prevents Streamlit from reloading them every time the user searches.
+@st.cache_resource(show_spinner=False)
+def get_cached_collection():
+    return load_collection()
+
 
 st.markdown(
     """
@@ -57,18 +69,29 @@ st.markdown(
 
 
 st.title("Taylor Swift Lyric Match")
+
 st.markdown(
-    '<div class="subtitle">Describe a situation. Get lyric matches ranked by emotion, POV, and timeline.</div>',
+    '<div class="subtitle">Describe a situation. Get song-section matches ranked by emotion, POV, and timeline.</div>',
     unsafe_allow_html=True
 )
 
+# CHANGE:
+# Added a clear public-demo note so the wait feels intentional, not broken.
+st.caption(
+    "Public demo: lyric text is hidden for copyright reasons. "
+    "Matching may take up to a minute, especially on the first search."
+)
+
+
 user_query = st.text_area(
     "What are you going through?",
-    placeholder="Example: My boyfriend and I broke up but I still love him",
+    placeholder="Example: I miss my ex but I know they're bad for me",
     height=130
 )
 
-search_clicked = st.button("Find my  matches")
+# CHANGE:
+# Fixed extra space in button text.
+search_clicked = st.button("Find my matches")
 
 NUM_RESULTS = 5
 MIN_SCORE = 7
@@ -78,11 +101,16 @@ if search_clicked:
     if not user_query.strip():
         st.warning("Please enter a situation first.")
     else:
-        with st.spinner("Finding the best matches..."):
+        # CHANGE:
+        # Load the cached collection once and pass it into the search function.
+        with st.spinner("Loading model and finding the best matches..."):
+            collection = get_cached_collection()
+
             matches = run_lyric_search(
                 user_query=user_query,
                 num_results=NUM_RESULTS,
-                min_score=MIN_SCORE
+                min_score=MIN_SCORE,
+                collection=collection
             )
 
         if not matches:
@@ -101,7 +129,7 @@ if search_clicked:
                 analysis = match.get("analysis", "")
                 match_type = match.get("match_type", "")
                 state_alignment = match.get("state_alignment", "")
-                lyric_is_about = match.get("lyric_is_about", "")
+                section_is_about = match.get("section_is_about", "")
                 narrator_state = match.get("narrator_state", "")
                 distance = match.get("distance", "")
                 low_confidence = match.get("low_confidence", False)
@@ -125,7 +153,7 @@ if search_clicked:
                     with st.expander("More details"):
                         st.write(f"**Match type:** {match_type}")
                         st.write(f"**State alignment:** {state_alignment}")
-                        st.write(f"**Section is about:** {lyric_is_about}")
+                        st.write(f"**Section is about:** {section_is_about}")
                         st.write(f"**Narrator state:** {narrator_state}")
                         st.write(f"**Distance:** {distance}")
 
