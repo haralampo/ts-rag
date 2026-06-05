@@ -8,6 +8,16 @@ The goal of this project is not just to search lyrics by keyword. It is to retri
 
 ---
 
+## Live Demo
+
+[Try the public demo here](https://ts-rag-public-demo.streamlit.app/#2-question)
+
+Note: the public demo hides lyric text for copyright reasons. Thus, those matches are based on song-section metadata rather than raw lyrics; some results may be less precise. 
+
+The first search may take up to a minute while the app loads and runs retrieval/reranking.
+
+---
+
 ## Table of Contents
 
 * [Project Overview](#project-overview)
