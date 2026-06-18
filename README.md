@@ -3,6 +3,7 @@
 A RAG-style semantic search project that matches user-described emotions or situations to relevant lyric sections from a custom dataset.
 
 The goal of this project is not just to search lyrics by keyword. It is to retrieve lyric sections that match the user's emotional state, point of view, timeline, and narrative situation.
+
 Retrieval uses a two-stage pipeline: a vector similarity search over ChromaDB (embedded with all-MiniLM-L6-v2) surfaces candidate lyric sections, and an LLM reranker (GPT-4o-mini) scores each candidate across narrator state, speaker role, timeline phase, and lyric evidence. This second stage is what allows the system to distinguish between situations that are topically similar but narratively opposite.
 
 > Read the full build/debugging write-up: [Building a Taylor Swift RAG Program](https://open.substack.com/pub/haralampo/p/sad-beautiful-tragic?r=7yj7sg&utm_campaign=post&utm_medium=web)
