@@ -14,6 +14,8 @@ Retrieval uses a two-stage pipeline: a vector similarity search over ChromaDB (e
 
 [Try the public demo here](https://ts-rag-public-demo.streamlit.app/#2-question)
 
+> Live demo may need a moment to wake up if inactive. Click the button to restart.
+
 Note: the public demo hides lyric text for copyright reasons. Thus, those matches are based on song-section metadata rather than raw lyrics; some results may be less precise. 
 
 The first search may take up to a minute while the app loads and runs retrieval/reranking.
