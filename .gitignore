@@ -19,3 +19,5 @@ app_private.py
 logs/
 search_logs*.txt
 search_logs*.jsonl
+
+Taylor_RAG_Resume_Summary.md
